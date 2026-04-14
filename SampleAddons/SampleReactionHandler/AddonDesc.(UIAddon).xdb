@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<UIAddon>
+	<Name>SampleReactionHandler</Name>
+	<AutoStart>true</AutoStart>
+	<ScriptFileRefs>
+		<Item href="/Mods/SampleCommon/SampleAddonBase.lua" />
+		<Item href="ScriptSampleReactionHandler.lua" />
+	</ScriptFileRefs>
+	<Form href="MainForm.(WidgetForm).xdb" />
+</UIAddon>

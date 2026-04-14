@@ -1,0 +1,7 @@
+Следующие файлы (архивы) нужно поместить в папку data\Mods\Addons:
+SampleLocalization.pak
+SampleLocalization.rus
+SampleLocalization.eng
+
+Файл Personal\global.cfg должен содержать строку с необходимым языком, например:
+localization = "rus"
