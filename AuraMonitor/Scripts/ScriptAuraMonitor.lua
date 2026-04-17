@@ -101,16 +101,20 @@ local function pushOutputLine(line)
 	end
 end
 
+--- Единая точка логирования. Выводит событие:
+---   1. в on-screen widget (короткой строкой-сводкой),
+---   2. в чат игрока — многострочно через chatTree, чтобы не обрезалось.
 ---@param kind string      Короткое имя события (buff_added, health_changed, snapshot, ...).
----@param payload any       Любая сериализуемая в JSON структура.
+---@param payload any       Любая сериализуемая структура.
 local function logJson(kind, payload)
+	-- Виджет-лента: одна строка с коротким JSON (чтобы не забивать весь экран).
 	local encoded = json.encode(payload)
 	local short = encoded
 	if #short > 200 then short = string.sub(short, 1, 200) .. "..." end
 	pushOutputLine("[" .. kind .. "] " .. short)
-	local chatShort = encoded
-	if #chatShort > 120 then chatShort = string.sub(chatShort, 1, 120) .. "..." end
-	chatMsg(AURAMON_TAG .. "[" .. kind .. "] " .. chatShort)
+
+	-- Чат: красивое дерево с дефисами (console.group-style).
+	chatTree(AURAMON_TAG .. "[" .. kind .. "]", payload)
 end
 
 --------------------------------------------------------------------------------
@@ -254,7 +258,16 @@ end
 -- EVENT HANDLERS
 --------------------------------------------------------------------------------
 
----@param params table|nil  Параметры события (содержат objectId / unitId / targetId / id).
+--- Подмножество полей, по которым isAvatar вычисляет, к кому относится событие.
+--- Любая из таблиц EVENT_*_Data «приводится» к ObjectEventLike (структурная типизация).
+---@class ObjectEventLike
+---@field objectId? ObjectId  — EVENT_OBJECT_BUFF_*, прочие объектные события
+---@field unitId?   ObjectId  — EVENT_UNIT_*_CHANGED (мана, ярость, воля)
+---@field targetId? ObjectId  — некоторые player-target события
+---@field id?       ObjectId  — EVENT_OBJECT_HEALTH_CHANGED
+
+--- Проверяет, что событие касается самого игрока (а не другого объекта в мире).
+---@param params ObjectEventLike|nil
 ---@return boolean
 local function isAvatar(params)
 	if not params then return false end
@@ -266,22 +279,22 @@ local function isAvatar(params)
 	return ok and eq or false
 end
 
----@param params table  { buffId?: ObjectId, id?: ObjectId, objectId?: ObjectId, ... }
+---@param params EVENT_OBJECT_BUFF_ADDED_Data
 local function rawOnBuffAdded(params)
 	if not isAvatar(params) then return end
-	logJson("buff_added", describeBuff(params.buffId or params.id))
+	logJson("buff_added", { event = params, buff = describeBuff(params.buffId) })
 end
 
----@param params table  Как у rawOnBuffAdded.
+---@param params EVENT_OBJECT_BUFF_CHANGED_Data
 local function rawOnBuffChanged(params)
 	if not isAvatar(params) then return end
-	logJson("buff_changed", describeBuff(params.buffId or params.id))
+	logJson("buff_changed", { event = params, buff = describeBuff(params.buffId) })
 end
 
----@param params table  Как у rawOnBuffAdded.
+---@param params EVENT_OBJECT_BUFF_REMOVED_Data
 local function rawOnBuffRemoved(params)
 	if not isAvatar(params) then return end
-	logJson("buff_removed", { buffId = tostring(params.buffId or params.id), params = params })
+	logJson("buff_removed", { event = params })
 end
 
 --- Обновить строку HP в HealthWindow (если окно видимо).
@@ -297,47 +310,63 @@ local function refreshHealthText()
 	hpRow:setValue(s)
 end
 
----@param params table  { objectId?: ObjectId, ... }
+---@param params EVENT_OBJECT_HEALTH_CHANGED_Data
 local function rawOnHealthChanged(params)
 	if not isAvatar(params) then return end
 	local avatarId = getAvatarId()
-	logJson("health_changed", { health = safe("object.GetHealthInfo", avatarId) })
+	logJson("health_changed", {
+		event  = params,
+		health = safe("object.GetHealthInfo", avatarId),
+	})
 	if ui and ui.isVisible(wtHealthWindow) then
 		refreshHealthText()
 	end
 end
 
----@param params table
+---@param params EVENT_UNIT_MANA_CHANGED_Data
 local function rawOnManaChanged(params)
 	if not isAvatar(params) then return end
 	local avatarId = getAvatarId()
-	logJson("mana_changed", { mana = safe("unit.GetMana", avatarId) })
+	logJson("mana_changed", {
+		event = params,
+		mana  = safe("unit.GetMana", avatarId),
+	})
 end
 
----@param params table
+---@param params EVENT_UNIT_RAGE_CHANGED_Data
 local function rawOnRageChanged(params)
 	if not isAvatar(params) then return end
 	local avatarId = getAvatarId()
-	logJson("rage_changed", { rage = safe("unit.GetRage", avatarId) })
+	logJson("rage_changed", {
+		event = params,
+		rage  = safe("unit.GetRage", avatarId),
+	})
 end
 
----@param params table
+---@param params EVENT_UNIT_WILL_CHANGED_Data
 local function rawOnWillChanged(params)
 	if not isAvatar(params) then return end
 	local avatarId = getAvatarId()
-	logJson("will_changed", { will = safe("unit.GetWill", avatarId) })
+	logJson("will_changed", {
+		event = params,
+		will  = safe("unit.GetWill", avatarId),
+	})
 end
 
----@param params table|nil
+---@param params EVENT_NECROMANCER_BLOOD_POOL_CHANGED_Data
 local function rawOnBloodPoolChanged(params)
-	logJson("blood_pool_changed",
-		{ bloodPool = safe("avatarInfo.GetNecromancerBloodPool") })
+	logJson("blood_pool_changed", {
+		event     = params,
+		bloodPool = safe("avatarInfo.GetNecromancerBloodPool"),
+	})
 end
 
----@param params table|nil
+---@param params EVENT_DRUID_PET_COMMAND_POINTS_CHANGED_Data
 local function rawOnDruidCommandChanged(params)
-	logJson("druid_command_changed",
-		{ points = safe("avatarInfo.GetDruidPetCommandPoints") })
+	logJson("druid_command_changed", {
+		event  = params,
+		points = safe("avatarInfo.GetDruidPetCommandPoints"),
+	})
 end
 
 -- Обёрнутые handler'ы — экспорт наружу как глобалы (нужно common.RegisterEventHandler)
