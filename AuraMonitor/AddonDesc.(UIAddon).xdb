@@ -2,10 +2,10 @@
 <UIAddon>
 	<Name>AuraMonitor</Name>
 	<AutoStart>true</AutoStart>
+	<Form href="Widgets/MainForm.(WidgetForm).xdb" />
 	<ScriptFileRefs>
-		<Item href="utils.lua" />
-		<Item href="ui.lua" />
-		<Item href="ScriptAuraMonitor.lua" />
+		<Item href="Scripts/utils.lua" />
+		<Item href="Scripts/ui.lua" />
+		<Item href="Scripts/ScriptAuraMonitor.lua" />
 	</ScriptFileRefs>
-	<Form href="MainForm.(WidgetForm).xdb" />
 </UIAddon>

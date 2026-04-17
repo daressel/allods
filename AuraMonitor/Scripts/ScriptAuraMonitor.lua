@@ -86,6 +86,7 @@ end
 -- Вывод в виджет на форме (последние N строк) + дубль в чат
 --------------------------------------------------------------------------------
 
+---@param line string
 local function pushOutputLine(line)
 	outputLines[#outputLines + 1] = line
 	while #outputLines > OUTPUT_MAX_LINES do
@@ -100,6 +101,8 @@ local function pushOutputLine(line)
 	end
 end
 
+---@param kind string      Короткое имя события (buff_added, health_changed, snapshot, ...).
+---@param payload any       Любая сериализуемая в JSON структура.
 local function logJson(kind, payload)
 	local encoded = json.encode(payload)
 	local short = encoded
@@ -114,10 +117,22 @@ end
 -- Снапшот состояния
 --------------------------------------------------------------------------------
 
+---@return ObjectId|nil
 local function getAvatarId()
 	return safe("avatar.GetId") or safe("avatarInfo.GetId")
 end
 
+---@class ResourcesSnapshot
+---@field health any             Таблица от object.GetHealthInfo, содержит .current / .maximum
+---@field mana any               Табл. от unit.GetMana/mana.GetMana
+---@field manaPct integer|nil
+---@field rage number|nil
+---@field will number|nil
+---@field bloodPool integer|nil  Только у некроманта
+---@field druidPetCommand integer|nil
+
+---@param avatarId ObjectId|nil
+---@return ResourcesSnapshot
 local function getResources(avatarId)
 	return {
 		health          = safe("object.GetHealthInfo", avatarId),
@@ -130,6 +145,14 @@ local function getResources(avatarId)
 	}
 end
 
+---@class BuffSnapshot
+---@field buffId string
+---@field sysName string|nil
+---@field info table            Информация о ресурсе бафа (имя, описание и т.д.)
+---@field dynamic table         Длительность / оставшееся время / стаки
+
+---@param buffId ObjectId
+---@return BuffSnapshot
 local function describeBuff(buffId)
 	return {
 		buffId  = tostring(buffId),
@@ -139,6 +162,8 @@ local function describeBuff(buffId)
 	}
 end
 
+---@param avatarId ObjectId|nil
+---@return BuffSnapshot[]
 local function getAuras(avatarId)
 	local list = safe("buff.GetBuffs", avatarId, false) or {}
 	local out = {}
@@ -148,6 +173,9 @@ local function getAuras(avatarId)
 	return out
 end
 
+---@param ids any[]|nil
+---@param infoPath string
+---@return table[]
 local function collectSpells(ids, infoPath)
 	local out = {}
 	if type(ids) ~= "table" then return out end
@@ -157,6 +185,12 @@ local function collectSpells(ids, infoPath)
 	return out
 end
 
+---@class SpellsSnapshot
+---@field spellbook table[]      avatar.GetSpellBook() — активные заклинания
+---@field abilities table[]      avatar.GetAbilities() — пассивные
+---@field skills    table[]      avatar.GetSkills()
+
+---@return SpellsSnapshot
 local function getSpells()
 	return {
 		spellbook = collectSpells(safe("avatar.GetSpellBook"), "avatar.GetSpellInfo"),
@@ -165,6 +199,8 @@ local function getSpells()
 	}
 end
 
+---@param slotType integer  ITEM_CONT_INVENTORY | ITEM_CONT_EQUIPMENT | ...
+---@return { size: integer|nil, items: table[] }
 local function dumpContainer(slotType)
 	return {
 		size  = safe("containerLib.GetSize", slotType),
@@ -183,6 +219,11 @@ local function dumpContainer(slotType)
 	}
 end
 
+---@class ContainersSnapshot
+---@field inventory { size: integer|nil, items: table[] }
+---@field equipment { size: integer|nil, items: table[] }
+
+---@return ContainersSnapshot
 local function getInventory()
 	return {
 		inventory = dumpContainer(ITEM_CONT_INVENTORY),
@@ -190,6 +231,14 @@ local function getInventory()
 	}
 end
 
+---@class AuraSnapshot
+---@field avatarId string
+---@field resources ResourcesSnapshot
+---@field auras BuffSnapshot[]
+---@field spells SpellsSnapshot
+---@field containers ContainersSnapshot
+
+---@return AuraSnapshot
 local function buildSnapshot()
 	local avatarId = getAvatarId()
 	return {
@@ -205,6 +254,8 @@ end
 -- EVENT HANDLERS
 --------------------------------------------------------------------------------
 
+---@param params table|nil  Параметры события (содержат objectId / unitId / targetId / id).
+---@return boolean
 local function isAvatar(params)
 	if not params then return false end
 	local me = getAvatarId()
@@ -215,25 +266,29 @@ local function isAvatar(params)
 	return ok and eq or false
 end
 
+---@param params table  { buffId?: ObjectId, id?: ObjectId, objectId?: ObjectId, ... }
 local function rawOnBuffAdded(params)
 	if not isAvatar(params) then return end
 	logJson("buff_added", describeBuff(params.buffId or params.id))
 end
 
+---@param params table  Как у rawOnBuffAdded.
 local function rawOnBuffChanged(params)
 	if not isAvatar(params) then return end
 	logJson("buff_changed", describeBuff(params.buffId or params.id))
 end
 
+---@param params table  Как у rawOnBuffAdded.
 local function rawOnBuffRemoved(params)
 	if not isAvatar(params) then return end
 	logJson("buff_removed", { buffId = tostring(params.buffId or params.id), params = params })
 end
 
--- Обновить строку HP в HealthWindow (если окно видимо)
+--- Обновить строку HP в HealthWindow (если окно видимо).
 local function refreshHealthText()
 	if not hpRow then return end
 	local avatarId = getAvatarId()
+	---@type { current: integer?, maximum: integer? }|nil
 	local h = safe("object.GetHealthInfo", avatarId)
 	local s = "?"
 	if h and h.current and h.maximum then
@@ -242,6 +297,7 @@ local function refreshHealthText()
 	hpRow:setValue(s)
 end
 
+---@param params table  { objectId?: ObjectId, ... }
 local function rawOnHealthChanged(params)
 	if not isAvatar(params) then return end
 	local avatarId = getAvatarId()
@@ -251,29 +307,34 @@ local function rawOnHealthChanged(params)
 	end
 end
 
+---@param params table
 local function rawOnManaChanged(params)
 	if not isAvatar(params) then return end
 	local avatarId = getAvatarId()
 	logJson("mana_changed", { mana = safe("unit.GetMana", avatarId) })
 end
 
+---@param params table
 local function rawOnRageChanged(params)
 	if not isAvatar(params) then return end
 	local avatarId = getAvatarId()
 	logJson("rage_changed", { rage = safe("unit.GetRage", avatarId) })
 end
 
+---@param params table
 local function rawOnWillChanged(params)
 	if not isAvatar(params) then return end
 	local avatarId = getAvatarId()
 	logJson("will_changed", { will = safe("unit.GetWill", avatarId) })
 end
 
+---@param params table|nil
 local function rawOnBloodPoolChanged(params)
 	logJson("blood_pool_changed",
 		{ bloodPool = safe("avatarInfo.GetNecromancerBloodPool") })
 end
 
+---@param params table|nil
 local function rawOnDruidCommandChanged(params)
 	logJson("druid_command_changed",
 		{ points = safe("avatarInfo.GetDruidPetCommandPoints") })

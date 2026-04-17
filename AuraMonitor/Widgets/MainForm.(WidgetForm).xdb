@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<WidgetForm>
+	<Name>AuraMonitor</Name>
+	<Priority>1000</Priority>
+	<Children>
+		<Item href="Output/Output.(WidgetTextView).xdb" />
+		<Item href="AMButton/AMButton.(WidgetButton).xdb#xpointer(/WidgetButton)" />
+		<Item href="HealthWindow/HealthWindow.(WidgetPanel).xdb" />
+		<Item href="StatusRow/StatusRowTemplate.(WidgetTextView).xdb" />
+	</Children>
+	<BackLayer href="" />
+	<FrontLayer href="" />
+	<Placement>
+		<QuantumScale>false</QuantumScale>
+		<X>
+			<Align>WIDGET_ALIGN_LOW</Align>
+			<Sizing>WIDGET_SIZING_DEFAULT</Sizing>
+			<Pos>20</Pos>
+			<HighPos>0</HighPos>
+			<Size>600</Size>
+		</X>
+		<Y>
+			<Align>WIDGET_ALIGN_LOW</Align>
+			<Sizing>WIDGET_SIZING_DEFAULT</Sizing>
+			<Pos>100</Pos>
+			<HighPos>0</HighPos>
+			<Size>260</Size>
+		</Y>
+	</Placement>
+	<Visible>true</Visible>
+	<Enabled>true</Enabled>
+	<TransparentInput>false</TransparentInput>
+	<PickChildrenOnly>true</PickChildrenOnly>
+</WidgetForm>

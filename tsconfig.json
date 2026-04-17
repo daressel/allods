@@ -11,6 +11,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["doc-parser.ts", "new-doc-parser.ts"],
+  "include": ["doc-parser.ts", "doc-parser.ts"],
   "exclude": ["node_modules", "dist"]
 }

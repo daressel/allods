@@ -23,6 +23,7 @@ Global("AURAMON_TAG", "[AuraMonitor]")
 -- chatMsg: единственный канал вывода. Никогда не поднимает исключение.
 --------------------------------------------------------------------------------
 
+---@param text string|any
 function chatMsg(text)
 	if type(text) ~= "string" then text = tostring(text) end
 	local ok, ws = pcall(userMods.ToWString, text)
@@ -34,6 +35,9 @@ end
 -- Резолвер путей вида "a.b.c" через _G. Возвращает (value, nil) или (nil, err).
 --------------------------------------------------------------------------------
 
+---@param path string
+---@return any|nil value
+---@return string|nil err
 local function resolvePath(path)
 	if type(path) ~= "string" then
 		return nil, "path is not a string"
@@ -59,6 +63,10 @@ end
 -- Возвращает (ok, result_or_error).
 --------------------------------------------------------------------------------
 
+---@param pathOrFn string|function
+---@param ... any
+---@return boolean ok
+---@return any result_or_error
 function tryCall(pathOrFn, ...)
 	local fn
 	local ctx
@@ -91,6 +99,10 @@ end
 -- Удобно для сбора снапшотов: один битый API не ломает весь дамп.
 --------------------------------------------------------------------------------
 
+---@generic T
+---@param pathOrFn string|fun(...):T
+---@param ... any
+---@return T|nil
 function safe(pathOrFn, ...)
 	local ok, res = tryCall(pathOrFn, ...)
 	if ok then return res end
@@ -102,6 +114,9 @@ end
 -- сообщает о ней в чат и подавляет исключение, чтобы не выпилился аддон.
 --------------------------------------------------------------------------------
 
+---@param ctx string
+---@param fn fun(params:any)
+---@return fun(params:any)
 function guard(ctx, fn)
 	return function(params)
 		local ok, err = pcall(fn, params)

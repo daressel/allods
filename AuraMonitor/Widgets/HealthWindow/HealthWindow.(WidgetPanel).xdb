@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<WidgetForm>
+<WidgetPanel>
 	<Name>HealthWindow</Name>
-	<Priority>50</Priority>
+	<Priority>500</Priority>
 	<Children>
+		<Item href="HealthWindowBg.(WidgetPanel).xdb" />
 	</Children>
 	<BackLayer href="" />
 	<FrontLayer href="" />
@@ -11,14 +12,14 @@
 		<X>
 			<Align>WIDGET_ALIGN_LOW</Align>
 			<Sizing>WIDGET_SIZING_DEFAULT</Sizing>
-			<Pos>50</Pos>
+			<Pos>80</Pos>
 			<HighPos>0</HighPos>
 			<Size>220</Size>
 		</X>
 		<Y>
 			<Align>WIDGET_ALIGN_LOW</Align>
 			<Sizing>WIDGET_SIZING_DEFAULT</Sizing>
-			<Pos>-28</Pos>
+			<Pos>0</Pos>
 			<HighPos>0</HighPos>
 			<Size>140</Size>
 		</Y>
@@ -27,4 +28,4 @@
 	<Enabled>true</Enabled>
 	<TransparentInput>true</TransparentInput>
 	<PickChildrenOnly>false</PickChildrenOnly>
-</WidgetForm>
+</WidgetPanel>

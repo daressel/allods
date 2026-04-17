@@ -6,7 +6,6 @@
   "main": "doc-parser.ts",
   "scripts": {
     "parse": "tsx doc-parser.ts",
-    "parse:new": "tsx new-doc-parser.ts",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

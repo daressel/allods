@@ -121,24 +121,83 @@ rm "/path/to/wineprefix/drive_c/Games/Allods/data/Mods/Addons/AuraMonitor"
 
 ```
 AuraMonitor/
-├── AddonDesc.(UIAddon).xdb            — дескриптор: AutoStart=true, ScriptFileRefs: utils.lua + ui.lua + ScriptAuraMonitor.lua
-├── MainForm.(WidgetForm).xdb          — корневая форма аддона, содержит всех детей
-├── Output.(WidgetTextView).xdb        — лента событий (существующий)
-├── Output.txt                         — формат Output (UTF-16LE + BOM)
-├── AMButton.(WidgetButton).xdb        — кнопка «AM» с reaction=amButtonClick
-├── AMButton.txt                       — текст кнопки «AM» (UTF-16LE + BOM)
-├── AMButtonFormat.txt                 — формат состояния кнопки (UTF-16LE + BOM)
-├── HealthWindow.(WidgetForm).xdb      — суб-окно с HP (скрыто до клика)
-├── StatusRowTemplate.(WidgetTextView).xdb — ШАБЛОН строки-статуса (скрытый)
-├── StatusRow.txt                      — формат шаблона (UTF-16LE + BOM)
-├── .luarc.json                        — конфиг Lua LSP
-├── utils.lua                          — chatMsg / tryCall / safe / guard (грузится 1-м)
-├── ui.lua                             — фреймворк виджетов (грузится 2-м)
-├── ScriptAuraMonitor.lua              — основная логика (грузится 3-м)
-└── README.md                          — этот файл
+├── AddonDesc.(UIAddon).xdb         — дескриптор: AutoStart=true, ссылка на Widgets/MainForm
+├── README.md
+├── .luarc.json                     — конфиг Lua LSP → workspace.library: ["../types", "./types"]
+│
+├── types/                          — LuaLS-аннотации (НЕ загружаются в игру)
+│   └── AuraMonitor.lua             — @class UI, StatusRowHandle, StatusRowOpts, mainForm, chatMsg...
+│
+├── Scripts/                        — Lua-код, грузится в порядке из ScriptFileRefs
+│   ├── utils.lua                   — chatMsg / tryCall / safe / guard (1-м)
+│   ├── ui.lua                      — фреймворк виджетов: ui.bind / onClick / setText / show / templates (2-м)
+│   └── ScriptAuraMonitor.lua       — основная логика: снапшот, хэндлеры, Init (3-м)
+│
+└── Widgets/                        — все UI-ресурсы, сгруппированы по бандлам
+    ├── MainForm.(WidgetForm).xdb   — корневая форма аддона
+    │
+    ├── Output/                     — лента событий (текст-вью)
+    │   ├── Output.(WidgetTextView).xdb
+    │   └── Output.txt              — формат (UTF-16LE + BOM)
+    │
+    ├── AMButton/                   — кнопка «AM» (использует ButtonRegular prototype)
+    │   ├── AMButton.(WidgetButton).xdb
+    │   ├── AMButton.txt            — текст «AM» (UTF-16LE + BOM)
+    │   └── AMButtonFormat.txt      — формат состояния (UTF-16LE + BOM)
+    │
+    ├── HealthWindow/               — суб-окно с HP (скрыто до клика по AM)
+    │   ├── HealthWindow.(WidgetPanel).xdb
+    │   └── HealthWindowBg.(WidgetPanel).xdb — декоративный фон
+    │
+    └── StatusRow/                  — шаблон строки-статуса (клонируется из Lua)
+        ├── StatusRowTemplate.(WidgetTextView).xdb
+        └── StatusRow.txt           — формат (UTF-16LE + BOM)
 ```
 
-Скрипты грузятся в порядке из `ScriptFileRefs` в `AddonDesc.(UIAddon).xdb`.
+## Типизация (LuaLS)
+
+Чтобы редактор (VS Code + sumneko.lua) корректно показывал подсказки, автодополнение и подсвечивал ошибки, все свои глобалы и классы описаны в одном файле:
+
+- [types/AuraMonitor.lua](types/AuraMonitor.lua) — **`---@meta`** файл с декларациями:
+  - Игровой глобал `mainForm: FormSafe` (движок инжектит его на старте аддона).
+  - Утилиты из `utils.lua`: `chatMsg`, `tryCall`, `safe`, `guard`, `AURAMON_TAG`.
+  - Фреймворк `ui` как `@class UI` — все методы с полными сигнатурами.
+  - Структурные типы: `@class StatusRowHandle`, `@class StatusRowOpts`.
+  - Глобалы состояния из `ScriptAuraMonitor.lua`: `wtAMButton: ButtonSafe`, `wtHealthWindow: WidgetSafe`, `hpRow: StatusRowHandle`, `wtOutput: TextViewSafe`, `json: JsonLib`.
+
+Файл помечен `---@meta` — он НЕ исполняется и НЕ попадает в игру (его нет в `AddonDesc.(UIAddon).xdb > ScriptFileRefs`). Только LuaLS его читает благодаря `workspace.library: ["./types"]` в `.luarc.json`.
+
+В самих `Scripts/*.lua` функции и локальные переменные дополнительно аннотированы через `---@param`, `---@return`, `---@type`, `---@class` — даже при Ctrl+Click на реализацию работает навигация, hover-подсказки показывают типы параметров.
+
+**Пример из `Scripts/ScriptAuraMonitor.lua`:**
+```lua
+---@class ResourcesSnapshot
+---@field health any
+---@field mana any
+---@field rage number|nil
+---@field will number|nil
+---@field bloodPool integer|nil
+---@field druidPetCommand integer|nil
+
+---@param avatarId ObjectId|nil
+---@return ResourcesSnapshot
+local function getResources(avatarId)
+    return {
+        health    = safe("object.GetHealthInfo", avatarId),
+        mana      = safe("unit.GetMana", avatarId) or safe("mana.GetMana", avatarId),
+        rage      = safe("unit.GetRage", avatarId),
+        ...
+    }
+end
+```
+
+При вызове `local r = getResources(myId)` LuaLS покажет `r` как `ResourcesSnapshot`, автодополнение по `r.` отобразит все поля с типами.
+
+**Если нужен новый свой класс/глобал** — добавь декларацию в `types/AuraMonitor.lua`. Всё, что требуется в рантайме, по-прежнему определяется в `Scripts/`, а `types/` — только для редактора.
+
+Структура следует паттерну `TargeterZ` (из `data/Mods/Addons/TargeterZ/`): `Scripts/` для Lua, `Widgets/` для UI. Каждый «бандл» виджета (кнопка с её форматами, окно с фоном, шаблон строки) лежит в своей подпапке — править и переносить целиком удобно.
+
+Скрипты грузятся в порядке из `ScriptFileRefs` в `AddonDesc.(UIAddon).xdb`: `utils.lua` → `ui.lua` → `ScriptAuraMonitor.lua`. Каждый следующий скрипт видит глобалы предыдущих.
 
 > ⚠ `Output.txt` **обязан** быть UTF-16LE с BOM, иначе клиент не прочитает формат. Создаётся из PowerShell:
 > ```powershell
@@ -243,6 +302,33 @@ Runtime выставлен в `LuaJIT` (в игре — модифицирова
 - Любой **тип** виджета (кнопка, форма, текст-вью, панель) **должен быть в XDB**. Из чистого Lua инстанцировать неизвестный тип нельзя.
 - Все `.txt`-файлы, на которые ссылаются XDB-виджеты через `TextFileRef`/`FormatFileRef`, **обязаны** быть в кодировке **UTF-16LE с BOM**. Иначе движок не прочитает, виджет будет невидим/пуст. Проверка: `od -c file.txt | head -1` должно начинаться с `377 376`.
 - `ui.lua` и `utils.lua` грузятся до основного скрипта (порядок в `AddonDesc.(UIAddon).xdb`). Ломать этот порядок нельзя.
+
+### Важные наблюдения при работе с виджетами (из реальных аддонов)
+
+Эти моменты неочевидны из общей документации, но стали понятны после чтения рабочих аддонов в `data/Mods/Addons` (`BuildManagerButton`, `RaidBuffsZ`, `TargeterZ` и т.д.).
+
+1. **Кнопка без prototype НЕВИДИМА.** Вся отрисовка (normal/pushed/highlighted слои, формат текста) приходит из prototype. Без `<Header><Prototype href="..."/></Header>` будет пустой кликабельный рект без графики. В игре уже установлен `/Mods/SampleCommon/Button/ButtonRegular.Prototype.(WidgetButton).xdb` — используем его:
+   ```xml
+   <Header>
+       <Prototype href="/Mods/SampleCommon/Button/ButtonRegular.Prototype.(WidgetButton).xdb#xpointer(/WidgetButton)" />
+   </Header>
+   ```
+   Тег текста этого prototype — **`button_label`**, не `"value"`. То есть если хочешь задать текст из Lua: `button:SetVal("button_label", userMods.ToWString("AM"))`. В нашей реализации текст идёт через `TextFileRef href="AMButton.txt"`, и prototype сам подставит его в `<r name="button_label"/>` (см. `ButtonFormatNormal.txt` из SampleCommon).
+
+2. **`#xpointer(/WidgetXxx)` в href-ссылках.** Многие рабочие аддоны указывают `href="X.xdb#xpointer(/WidgetButton)"` — это XPath-селектор корневого элемента внутри XDB. Для большинства случаев работает и без него, но при ссылках на prototype — безопаснее всегда включать. Пример: `BuildManagerButton/MainForm.(WidgetForm).xdb` и его `AddonDesc`.
+
+3. **Форма без `BackLayer` прозрачна.** Сама `<WidgetForm>` не рисует ничего своего — только детей. Чтобы окно выглядело как окно (фон), добавляем ребёнка `WidgetPanel` с `<BackLayer>`, который растягивается на всю площадь через `WIDGET_ALIGN_BOTH`. Пример — наш `HealthWindowBg.(WidgetPanel).xdb`, использующий `ButtonRegularNormal.(WidgetLayerTiledTexture).xdb` из SampleCommon как декоративный фон.
+
+4. **Placement: `<TransparentInput>` и `<PickChildrenOnly>`.** Для формы-контейнера, которая ПРОПУСКАЕТ ввод к детям (кнопки внутри формы должны кликаться), рабочий паттерн из других аддонов:
+   ```xml
+   <TransparentInput>false</TransparentInput>
+   <PickChildrenOnly>true</PickChildrenOnly>
+   ```
+   У нас было `TransparentInput=true, PickChildrenOnly=false` — это могло мешать кликам по детям.
+
+5. **Позиционирование вне родителя.** Children могут иметь `<Pos>` с отрицательными значениями и/или Size больше родителя — движок Allods их рендерит поверх всего (если Priority высокий). Но это хрупко: если визуально ничего не видно, в первую очередь проверяй, что placement лежит в разумных координатах экрана.
+
+6. **Priority = порядок отрисовки.** Чем больше `<Priority>`, тем выше поверх других виджетов. `MainForm` рабочих аддонов часто ставит `<Priority>1000-10000</Priority>`, а кнопки/панели — ещё выше.
 
 ## Демо: кнопка AM + окно с HP
 
