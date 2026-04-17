@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<WidgetButton>
+	<Name>AMButton</Name>
+	<Priority>100</Priority>
+	<Placement>
+		<QuantumScale>false</QuantumScale>
+		<X>
+			<Align>WIDGET_ALIGN_LOW</Align>
+			<Sizing>WIDGET_SIZING_DEFAULT</Sizing>
+			<Pos>0</Pos>
+			<HighPos>0</HighPos>
+			<Size>40</Size>
+		</X>
+		<Y>
+			<Align>WIDGET_ALIGN_LOW</Align>
+			<Sizing>WIDGET_SIZING_DEFAULT</Sizing>
+			<Pos>-28</Pos>
+			<HighPos>0</HighPos>
+			<Size>24</Size>
+		</Y>
+	</Placement>
+	<Visible>true</Visible>
+	<Enabled>true</Enabled>
+	<IgnoreDblClick>true</IgnoreDblClick>
+	<TextTag>value</TextTag>
+	<Variants>
+		<Item>
+			<TextFileRef href="AMButton.txt" />
+			<Reaction>amButtonClick</Reaction>
+			<PushedOffset x="-1" y="1" />
+			<StateNormal>
+				<FormatFileRef href="AMButtonFormat.txt" />
+			</StateNormal>
+			<StatePushed>
+				<FormatFileRef href="AMButtonFormat.txt" />
+			</StatePushed>
+			<StateDisabled>
+				<FormatFileRef href="AMButtonFormat.txt" />
+			</StateDisabled>
+			<ReactionOnUp>true</ReactionOnUp>
+		</Item>
+	</Variants>
+	<TextStyle>
+		<Align>ALIGNY_MIDDLE</Align>
+	</TextStyle>
+</WidgetButton>

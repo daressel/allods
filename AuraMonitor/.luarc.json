@@ -1,0 +1,30 @@
+{
+	"runtime.version": "LuaJIT",
+	"workspace.library": ["../types"],
+	"workspace.checkThirdParty": false,
+	"diagnostics.globals": [
+		"Global",
+		"LogInfo",
+		"LogWarning",
+		"LogError",
+		"mainForm",
+		"common",
+		"avatar",
+		"avatarInfo",
+		"buff",
+		"unit",
+		"mana",
+		"containerLib",
+		"itemLib",
+		"userMods",
+		"action",
+		"spellbook",
+		"ui",
+		"chatMsg",
+		"tryCall",
+		"safe",
+		"guard",
+		"AURAMON_TAG"
+	],
+	"diagnostics.disable": ["lowercase-global"]
+}

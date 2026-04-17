@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<UIAddon>
+	<Name>AuraMonitor</Name>
+	<AutoStart>true</AutoStart>
+	<ScriptFileRefs>
+		<Item href="utils.lua" />
+		<Item href="ui.lua" />
+		<Item href="ScriptAuraMonitor.lua" />
+	</ScriptFileRefs>
+	<Form href="MainForm.(WidgetForm).xdb" />
+</UIAddon>
